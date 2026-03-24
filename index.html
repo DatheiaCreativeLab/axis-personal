@@ -489,7 +489,7 @@ async function sbDelete(table,filter){
   await fetch(`${SB_URL}/rest/v1/${table}?${filter}`,{method:'DELETE',headers:SBH});
 }
 
-const MDL='claude-sonnet-4-20250514';
+const MDL = 'claude-sonnet-4-6';
 let DB={user:null,entries:[],metas:[],fondo:{activo:false,meta:0,actual:0},analisis:null};
 let tipo='gasto',ico='🎯',obs=0,chatH=[];
 
