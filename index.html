@@ -489,7 +489,6 @@ async function sbDelete(table,filter){
   await fetch(`${SB_URL}/rest/v1/${table}?${filter}`,{method:'DELETE',headers:SBH});
 }
 
-const API='https://api.anthropic.com/v1/messages';
 const MDL='claude-sonnet-4-20250514';
 let DB={user:null,entries:[],metas:[],fondo:{activo:false,meta:0,actual:0},analisis:null};
 let tipo='gasto',ico='🎯',obs=0,chatH=[];
@@ -557,15 +556,32 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const $=id=>document.getElementById(id);
 const TM=()=>new Date().toISOString().slice(0,7);
 
+const CLAUDE_PROXY_URL = 'https://rwdquvjkxtqmmdyowdal.supabase.co/functions/v1/claude-proxy';
+
 async function clj(msgs,sys,max=3000){
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MDL,max_tokens:max,system:sys,messages:msgs})});
-  const d=await r.json();const t=(d.content||[]).map(b=>b.text||'').join('');
+  const r=await fetch(CLAUDE_PROXY_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({msgs, sys, max_tokens:max, model:MDL})
+  });
+  const res=await r.json();
+  if(!res.success) throw new Error(res.error || 'Error en proxy Claude');
+  const d = res.data;
+  const t=(d.content||[]).map(b=>b.text||'').join('');
   const a=t.indexOf('{'),b=t.lastIndexOf('}');
   if(a>-1&&b>-1){try{return JSON.parse(t.slice(a,b+1));}catch{}}return{raw:t};
 }
+
 async function clt(msgs,sys,max=1000){
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MDL,max_tokens:max,system:sys,messages:msgs})});
-  const d=await r.json();return(d.content||[]).map(b=>b.text||'').join('');
+  const r=await fetch(CLAUDE_PROXY_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({msgs, sys, max_tokens:max, model:MDL})
+  });
+  const res=await r.json();
+  if(!res.success) throw new Error(res.error || 'Error en proxy Claude');
+  const d = res.data;
+  return(d.content||[]).map(b=>b.text||'').join('');
 }
 
 function gt(tab){
