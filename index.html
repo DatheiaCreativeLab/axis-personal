@@ -557,10 +557,15 @@ const TM=()=>new Date().toISOString().slice(0,7);
 
 const CLAUDE_PROXY_URL = 'https://rwdquvjkxtqmmdyowdal.supabase.co/functions/v1/claude-proxy';
 
+const CLAUDE_PROXY_URL = 'https://rwdquvjkxtqmmdyowdal.supabase.co/functions/v1/claude-proxy';
+
 async function clj(msgs,sys,max=3000){
   const r=await fetch(CLAUDE_PROXY_URL,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3ZHF1dmpreHRxbW1keW93ZGFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDM1MjksImV4cCI6MjA4OTc3OTUyOX0.gRTXTUDcalaAF1yje13mc0cHKqEcHHp2WGzjgFG9F6g'
+    },
     body:JSON.stringify({msgs, sys, max_tokens:max})
   });
   const res=await r.json();
@@ -574,7 +579,10 @@ async function clj(msgs,sys,max=3000){
 async function clt(msgs,sys,max=1000){
   const r=await fetch(CLAUDE_PROXY_URL,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3ZHF1dmpreHRxbW1keW93ZGFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDM1MjksImV4cCI6MjA4OTc3OTUyOX0.gRTXTUDcalaAF1yje13mc0cHKqEcHHp2WGzjgFG9F6g'
+    },
     body:JSON.stringify({msgs, sys, max_tokens:max})
   });
   const res=await r.json();
