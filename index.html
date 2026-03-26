@@ -790,61 +790,43 @@ async function runa(){
 
   const c=bctx();
 
-  const sys=`Eres Axis, asistente financiero. Devuelve ÚNICAMENTE un objeto JSON válido. Sin explicaciones, sin markdown, sin texto adicional antes ni después del JSON.`;
+  const sys=`Eres Axis, asistente financiero. Devuelve ÚNICAMENTE JSON válido. Sin texto adicional.`;
 
   const pmt=`Analiza la situación de ${DB.user.nombre}:
 INGRESOS MES: ${fm(c.iM)} | GASTOS MES: ${fm(c.gM)} | CUOTAS: ${fm(c.cu)} | FLUJO LIBRE: ${fm(c.fl)} | % COMPROMETIDO: ${c.pct}%
 INGRESOS: ${c.iS||'Sin registros'}
 GASTOS: ${c.gS||'Sin registros'}
-DEUDAS ACTIVAS: ${c.dS||'Sin deudas'}
+DEUDAS: ${c.dS||'Sin deudas'}
 
-Devuelve ÚNICAMENTE este JSON (sin nada más):
-{
-  "estado": "Estable"|"Presionado"|"Crítico",
-  "estado_descripcion": "frase precisa máx 14 palabras",
-  "flujo_libre": number,
-  "pct_comprometido": number,
-  "hallazgos": [{"tipo":"info"|"warning"|"danger"|"success","texto":"observación"}],
-  "analisis_creditos": [],
-  "fugas": [],
-  "riesgos": [],
-  "oportunidades": [],
-  "escenarios": [
-    {"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"consecuencia 2do orden","nota":"nota","recomendado":true},
-    {"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"consecuencia 2do orden","nota":"nota","recomendado":false},
-    {"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"consecuencia 2do orden","nota":"nota","recomendado":false}
-  ],
-  "recomendaciones": [{"titulo":"acción","descripcion":"descripción"}],
-  "cierre": "2 frases resumen"
-}`;
+Devuelve SOLO este JSON (nada más): 
+{"estado":"Estable"|"Presionado"|"Crítico","estado_descripcion":"frase precisa máx 14 palabras","flujo_libre":number,"pct_comprometido":number,"hallazgos":[{"tipo":"info"|"warning"|"danger"|"success","texto":"observación"}],"analisis_creditos":[],"fugas":[],"riesgos":[],"oportunidades":[],"escenarios":[{"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"2do orden","nota":"nota","recomendado":true},{"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"2do orden","nota":"nota","recomendado":false},{"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"2do orden","nota":"nota","recomendado":false}],"recomendaciones":[{"titulo":"acción","descripcion":"descripción"}],"cierre":"2 frases resumen"}`;
 
   try{
     const r=await clj([{role:'user',content:pmt}],sys,2500);
-    
-    // Mejor parsing para Gemini
-    let json = r.raw || '';
-    const start = json.indexOf('{');
-    const end = json.lastIndexOf('}');
-    if(start !== -1 && end !== -1){
-      json = json.slice(start, end+1);
-    }
-    const parsed = JSON.parse(json);
-    
-    DB.analisis={...parsed, date:td()};
+    let jsonText = r.raw || r.data?.content?.[0]?.text || '';
+
+    // Limpieza agresiva para Gemini
+    const start = jsonText.indexOf('{');
+    const end = jsonText.lastIndexOf('}') + 1;
+    if (start > -1 && end > start) jsonText = jsonText.slice(start, end);
+
+    const parsed = JSON.parse(jsonText);
+
+    DB.analisis = {...parsed, date: td()};
     await sv();
+
     rna(parsed);
-    
-    const pc=parsed.estado==='Estable'?'p-ok':parsed.estado==='Presionado'?'p-warn':'p-risk';
-    $('an-pill').innerHTML=`<span class="pill ${pc}">${parsed.estado}</span> <span style="color:rgba(255,255,255,.5);font-family:var(--fd);font-size:13px;font-style:italic">${parsed.estado_descripcion}</span>`;
-    btn.textContent='Re-analizar';
-  }catch(e){
+    const pc = parsed.estado === 'Estable' ? 'p-ok' : parsed.estado === 'Presionado' ? 'p-warn' : 'p-risk';
+    $('an-pill').innerHTML = `<span class="pill ${pc}">${parsed.estado}</span> <span style="color:rgba(255,255,255,.5);font-family:var(--fd);font-size:13px;font-style:italic">${parsed.estado_descripcion}</span>`;
+    btn.textContent = 'Re-analizar';
+  } catch(e){
     console.error(e);
-    $('an-err').textContent='Error: Respuesta inválida del análisis. Inténtalo de nuevo.';
-    $('an-err').style.display='block';
-    $('an-c').innerHTML='';
-    btn.textContent='Analizar ahora →';
+    $('an-err').innerHTML = 'Error: Gemini no devolvió JSON válido.<br>Inténtalo de nuevo o registra más movimientos.';
+    $('an-err').style.display = 'block';
+    $('an-c').innerHTML = '';
+    btn.textContent = 'Analizar ahora →';
   }
-  btn.disabled=false;
+  btn.disabled = false;
 }
   
 function rna(r){
