@@ -557,8 +557,6 @@ const TM=()=>new Date().toISOString().slice(0,7);
 
 const CLAUDE_PROXY_URL = 'https://rwdquvjkxtqmmdyowdal.supabase.co/functions/v1/claude-proxy';
 
-const CLAUDE_PROXY_URL = 'https://rwdquvjkxtqmmdyowdal.supabase.co/functions/v1/claude-proxy';
-
 async function clj(msgs,sys,max=3000){
   const r=await fetch(CLAUDE_PROXY_URL,{
     method:'POST',
