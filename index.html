@@ -787,29 +787,66 @@ function bctx(){
 async function runa(){
   const btn=$('an-btn');btn.disabled=true;btn.textContent='Analizando…';$('an-err').style.display='none';
   $('an-c').innerHTML=`<div class="ldr"><div class="lpw"><div class="lp lp1"></div><div class="lp lp2"></div><div class="lp lp3"></div></div><div style="font-family:var(--fb);font-size:15px;font-weight:500;color:var(--ink4)">leyendo tu panorama…</div></div>`;
+
   const c=bctx();
-  const sys='Eres Axis, sistema de análisis financiero personal. No decides por el usuario, haces evidente lo que no está viendo. Tono: claro, directo, neutro, sereno. Nunca alarmista. Devuelves ÚNICAMENTE JSON válido.';
+
+  const sys=`Eres Axis, asistente financiero. Devuelve ÚNICAMENTE un objeto JSON válido. Sin explicaciones, sin markdown, sin texto adicional antes ni después del JSON.`;
+
   const pmt=`Analiza la situación de ${DB.user.nombre}:
 INGRESOS MES: ${fm(c.iM)} | GASTOS MES: ${fm(c.gM)} | CUOTAS: ${fm(c.cu)} | FLUJO LIBRE: ${fm(c.fl)} | % COMPROMETIDO: ${c.pct}%
 INGRESOS: ${c.iS||'Sin registros'}
 GASTOS: ${c.gS||'Sin registros'}
 DEUDAS ACTIVAS: ${c.dS||'Sin deudas'}
 
-Devuelve JSON:
-{"estado":"Estable"|"Presionado"|"Crítico","estado_descripcion":"frase precisa máx 14 palabras","flujo_libre":number,"pct_comprometido":number,"hallazgos":[{"tipo":"info"|"warning"|"danger"|"success","texto":"observación+traducción con datos reales"}],"analisis_creditos":[{"credito":"nombre","cuota_mensual":number,"costo_real":"frase sobre costo total en el tiempo","etapa":"descripción etapa activo","impacto_abono":"qué pasa si abona a capital"}],"fugas":[{"nombre":"patrón detectado","monto":number,"observacion":"por qué es relevante"}],"riesgos":[{"tipo":"warning"|"danger","texto":"riesgo concreto con cifras"}],"oportunidades":[{"tipo":"success"|"info","texto":"oportunidad accionable con datos"}],"escenarios":[{"titulo":"título","descripcion":"2-3 frases Observación+Contexto+Proyección con datos reales","flujo_resultante":number,"orden2":"consecuencia de 2do orden: qué pasa después de que esto pase","nota":"observación clave máx 12 palabras","recomendado":true|false},{"titulo":"...","descripcion":"...","flujo_resultante":number,"orden2":"...","nota":"...","recomendado":false},{"titulo":"...","descripcion":"...","flujo_resultante":number,"orden2":"...","nota":"...","recomendado":false}],"recomendaciones":[{"titulo":"acción concreta","descripcion":"qué, por qué, qué cambia — con datos del usuario"}],"cierre":"2 frases que resumen la posición con serenidad y precisión"}
-3 escenarios MÁS RELEVANTES para esta situación. recomendado:true en el más óptimo. 3-5 hallazgos, 0-3 fugas, 2-3 riesgos, 1-3 oportunidades, 3-4 recomendaciones.`;
+Devuelve ÚNICAMENTE este JSON (sin nada más):
+{
+  "estado": "Estable"|"Presionado"|"Crítico",
+  "estado_descripcion": "frase precisa máx 14 palabras",
+  "flujo_libre": number,
+  "pct_comprometido": number,
+  "hallazgos": [{"tipo":"info"|"warning"|"danger"|"success","texto":"observación"}],
+  "analisis_creditos": [],
+  "fugas": [],
+  "riesgos": [],
+  "oportunidades": [],
+  "escenarios": [
+    {"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"consecuencia 2do orden","nota":"nota","recomendado":true},
+    {"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"consecuencia 2do orden","nota":"nota","recomendado":false},
+    {"titulo":"título","descripcion":"descripción","flujo_resultante":number,"orden2":"consecuencia 2do orden","nota":"nota","recomendado":false}
+  ],
+  "recomendaciones": [{"titulo":"acción","descripcion":"descripción"}],
+  "cierre": "2 frases resumen"
+}`;
+
   try{
     const r=await clj([{role:'user',content:pmt}],sys,2500);
-    if(r.raw)throw new Error('Respuesta inválida del análisis.');
-    DB.analisis={...r,date:td()};sv();
-    rna(r);
-    const pc=r.estado==='Estable'?'p-ok':r.estado==='Presionado'?'p-warn':'p-risk';
-    $('an-pill').innerHTML=`<span class="pill ${pc}">${r.estado}</span> <span style="color:rgba(255,255,255,.5);font-family:var(--fd);font-size:13px;font-style:italic">${r.estado_descripcion}</span>`;
+    
+    // Mejor parsing para Gemini
+    let json = r.raw || '';
+    const start = json.indexOf('{');
+    const end = json.lastIndexOf('}');
+    if(start !== -1 && end !== -1){
+      json = json.slice(start, end+1);
+    }
+    const parsed = JSON.parse(json);
+    
+    DB.analisis={...parsed, date:td()};
+    await sv();
+    rna(parsed);
+    
+    const pc=parsed.estado==='Estable'?'p-ok':parsed.estado==='Presionado'?'p-warn':'p-risk';
+    $('an-pill').innerHTML=`<span class="pill ${pc}">${parsed.estado}</span> <span style="color:rgba(255,255,255,.5);font-family:var(--fd);font-size:13px;font-style:italic">${parsed.estado_descripcion}</span>`;
     btn.textContent='Re-analizar';
-  }catch(e){$('an-err').textContent='Error: '+e.message;$('an-err').style.display='block';$('an-c').innerHTML='';btn.textContent='Analizar ahora →';}
+  }catch(e){
+    console.error(e);
+    $('an-err').textContent='Error: Respuesta inválida del análisis. Inténtalo de nuevo.';
+    $('an-err').style.display='block';
+    $('an-c').innerHTML='';
+    btn.textContent='Analizar ahora →';
+  }
   btn.disabled=false;
 }
-
+  
 function rna(r){
   const fi=h=>`<div class="fi"><div class="fdot fdot-${h.tipo}"></div><div class="ft">${h.texto}</div></div>`;
   const sc=(s,i)=>`<div class="scn" style="${s.recomendado?'border:2px solid var(--forest);background:var(--forest-pp)':''}">
