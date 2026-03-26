@@ -489,8 +489,6 @@ async function sbDelete(table,filter){
   await fetch(`${SB_URL}/rest/v1/${table}?${filter}`,{method:'DELETE',headers:SBH});
 }
 
-const API='https://api.anthropic.com/v1/messages';
-const MDL='claude-sonnet-4-20250514';
 let DB={user:null,entries:[],metas:[],fondo:{activo:false,meta:0,actual:0},analisis:null};
 let tipo='gasto',ico='🎯',obs=0,chatH=[];
 
@@ -557,15 +555,32 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const $=id=>document.getElementById(id);
 const TM=()=>new Date().toISOString().slice(0,7);
 
+const CLAUDE_PROXY_URL = 'https://rwdquvjkxtqmmdyowdal.supabase.co/functions/v1/claude-proxy';
+
 async function clj(msgs,sys,max=3000){
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MDL,max_tokens:max,system:sys,messages:msgs})});
-  const d=await r.json();const t=(d.content||[]).map(b=>b.text||'').join('');
+  const r=await fetch(CLAUDE_PROXY_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({msgs, sys, max_tokens:max})
+  });
+  const res=await r.json();
+  if(!res.success) throw new Error(res.error || 'Error en proxy');
+  const d = res.data;
+  const t=(d.content||[]).map(b=>b.text||'').join('');
   const a=t.indexOf('{'),b=t.lastIndexOf('}');
   if(a>-1&&b>-1){try{return JSON.parse(t.slice(a,b+1));}catch{}}return{raw:t};
 }
+
 async function clt(msgs,sys,max=1000){
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MDL,max_tokens:max,system:sys,messages:msgs})});
-  const d=await r.json();return(d.content||[]).map(b=>b.text||'').join('');
+  const r=await fetch(CLAUDE_PROXY_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({msgs, sys, max_tokens:max})
+  });
+  const res=await r.json();
+  if(!res.success) throw new Error(res.error || 'Error en proxy');
+  const d = res.data;
+  return(d.content||[]).map(b=>b.text||'').join('');
 }
 
 function gt(tab){
@@ -792,17 +807,18 @@ Devuelve JSON:
 function rna(r){
   const fi=h=>`<div class="fi"><div class="fdot fdot-${h.tipo}"></div><div class="ft">${h.texto}</div></div>`;
   const sc=(s,i)=>`<div class="scn" style="${s.recomendado?'border:2px solid var(--forest);background:var(--forest-pp)':''}">
-    ${s.recomendado?`<div style="font-family:var(--fd);font-size:11px;font-weight:700;color:var(--forest);margin-bottom:5px">★ recomendado para tu caso</div>`:''}
-    <div class="scn-tag">Escenario ${i+1}</div>
-    <div class="scn-title">${s.titulo}</div>
-    <div class="scn-body">${s.descripcion}</div>
-    <div class="scn-bot">
-      <div style="font-family:var(--fd);font-size:10.5px;color:var(--ink4);text-transform:uppercase;letter-spacing:.5px">Flujo resultante</div>
-      <div style="font-family:var(--fd);font-size:17px;font-weight:600;color:${s.flujo_resultante>=0?'var(--forest)':'var(--wine)'}">${fm(s.flujo_resultante)}</div>
-    </div>
-    ${s.orden2?`<div class="scn-o2"><span style="font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-right:6px">2do orden:</span>${s.orden2}</div>`:''}
-    <div class="scn-note">${s.nota}</div>
-  </div>`;
+  ${s.recomendado?`<div style="font-family:var(--fd);font-size:11px;font-weight:700;color:var(--forest);margin-bottom:5px">★ recomendado para tu caso</div>`:''}
+  <div class="scn-tag">Escenario ${i+1}</div>
+  <div class="scn-title">${s.titulo}</div>
+  <div class="scn-body">${s.descripcion}</div>
+  <div class="scn-bot">
+    <div style="font-family:var(--fd);font-size:10.5px;color:var(--ink4);text-transform:uppercase;letter-spacing:.5px">Flujo resultante</div>
+    <div style="font-family:var(--fd);font-size:17px;font-weight:600;color:${s.flujo_resultante>=0?'var(--forest)':'var(--wine)'}">${fm(s.flujo_resultante)}</div>
+  </div>
+  ${s.orden2?`<div class="scn-o2"><span style="font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-right:6px">2do orden:</span>${s.orden2}</div>`:''}
+  <div class="scn-note">${s.nota}</div>
+  <button onclick="aplicarEscenario(${i})" style="margin-top:12px;width:100%;padding:10px;background:var(--forest);color:#fff;border:none;border-radius:8px;font-family:var(--fd);font-weight:600;cursor:pointer">✅ Aplicar este escenario</button>
+</div>`;
 
   let h=`<div class="kpis" style="margin-bottom:22px">
     <div class="kpi"><div class="kl">Flujo libre</div><div class="kv" style="color:${r.flujo_libre>=0?'var(--forest)':'var(--wine)'}">${fm(r.flujo_libre)}</div><div class="ks">disponible / mes</div></div>
@@ -852,6 +868,31 @@ Devuelve JSON: {"titulo":"título máx 8 palabras","analisis":"4-6 frases Observ
       ${r.recomendacion?`<p style="margin-top:13px;font-family:var(--fd);font-size:12px;color:rgba(255,255,255,.4);border-top:1px dashed rgba(255,255,255,.12);padding-top:11px">→ ${r.recomendacion}</p>`:''}`;
   }catch(e){$('ow-r').style.display='block';$('ow-r').innerHTML=`<p style="color:#ffaaaa;font-family:var(--fd)">Error: ${e.message}</p>`;}
   btn.disabled=false;btn.textContent='Analizar este escenario →';
+}
+
+async function aplicarEscenario(i){
+  if(!DB.analisis || !DB.analisis.escenarios || !DB.analisis.escenarios[i]) return;
+  const esc = DB.analisis.escenarios[i];
+  if(!confirm(`¿Aplicar el escenario "${esc.titulo}"?\n\nSe guardará como movimiento en tu historial y Axis lo tendrá en cuenta para futuros análisis.`)) return;
+
+  // Creamos un movimiento ficticio pero real para el historial
+  const entry = {
+    id: uid(),
+    type: 'escenario',
+    name: esc.titulo,
+    amount: Math.abs(esc.flujo_resultante || 0),
+    category: 'decisión aplicada',
+    date: td(),
+    notes: `Escenario aplicado: ${esc.descripcion} | 2do orden: ${esc.orden2 || 'sin efecto adicional'}`,
+    createdAt: new Date().toISOString()
+  };
+
+  DB.entries.unshift(entry);
+  await svEntry(entry);
+  await sv();
+
+  alert('¡Escenario aplicado! Tu historial se actualizó. Ahora vuelve a analizar para ver el nuevo panorama.');
+  runa(); // re-analiza automáticamente
 }
 
 /* ── CHAT ── */
